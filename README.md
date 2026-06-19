@@ -9,7 +9,7 @@ violations. Includes a north/wind compass and a "Download PNG" export.
 
 ## Live site
 
-https://bulat-personal.github.io/playa-plot/
+https://bulat-eng.github.io/playa-plot/
 
 ## How it works
 
