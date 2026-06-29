@@ -464,6 +464,7 @@ function render(){
   positionToolbar();
   renderStats();
   syncEditor();
+  scheduleSave();                                // persist on every scene change (debounced)
 }
 
 function computeFit(){
@@ -721,10 +722,55 @@ document.getElementById("exportBtn").onclick=()=>{
   img.src=url;
 };
 
+/* ---------- storage adapter (swappable: local now, cloud later) ----------
+   The whole app reads/writes through `Store`, so adding real accounts later is
+   just pointing `Store` at a Supabase-backed adapter with the same method shape
+   — no other code has to change. Fixes the "refresh resets the layout" gap. */
+const SCENE_KEY="playaplot:autosave:v1";
+const LocalAdapter={
+  name:"local",
+  loadAutosave(){ try{ return JSON.parse(localStorage.getItem(SCENE_KEY)); }catch(e){ return null; } },
+  saveAutosave(scene){ try{ localStorage.setItem(SCENE_KEY,JSON.stringify(scene)); }catch(e){ /* private mode / quota — fail quiet */ } },
+  clearAutosave(){ try{ localStorage.removeItem(SCENE_KEY); }catch(e){} },
+};
+let Store=LocalAdapter;   // ← swap to a CloudAdapter (same shape) when signed in
+
+// the serializable scene = everything needed to redraw; zoom/selection are left out on purpose
+function serializeScene(){
+  return { v:1, plotW, plotD, items: items.map(it=>({...it})) };
+}
+function applyScene(s){
+  if(!s || !Array.isArray(s.items)) return false;
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  plotW=clamp(Math.round(+s.plotW)||70,10,400);
+  plotD=clamp(Math.round(+s.plotD)||50,10,400);
+  // sanitise each item so a corrupt/edited save can't crash the renderer
+  items=s.items.filter(it=>it&&CATS[it.cat]).map(it=>({
+    id:+it.id||0, cat:it.cat, key:it.key, label:String(it.label??""),
+    w:Math.max(1,+it.w||1), h:Math.max(1,+it.h||1), drive:it.drive||null,
+    x:+it.x||0, y:+it.y||0, rot:[0,90,180,270].includes(+it.rot)?+it.rot:0,
+  }));
+  uid=items.reduce((m,it)=>Math.max(m,it.id),0)+1;   // never reuse a saved id
+  selectedId=null;
+  document.getElementById("plotW").value=plotW;
+  document.getElementById("plotD").value=plotD;
+  return true;
+}
+function loadAutosave(){
+  const s=Store.loadAutosave();
+  return s ? applyScene(s) : false;
+}
+// debounced: a continuous drag re-renders on every move, so we save once it settles
+let saveT=null;
+function scheduleSave(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{ Store.saveAutosave(serializeScene()); },400);
+}
+
 /* ---------- init ---------- */
 fillSelect("rvSel",RV_TYPES);
 fillSelect("tentSel",TENT_TYPES);
-defaultScene();
+if(!loadAutosave()) defaultScene();   // restore last session, else the starter scene
 fullRebuild();
 </script>
 </body>

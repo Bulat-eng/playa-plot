@@ -2,7 +2,14 @@
 
 All notable changes to Playa Plot are documented here.
 
-## v0.0.1 — 2026-06-19
+## Unreleased
+
+### Added
+- **Layout autosave (local persistence).** Your layout now survives a page
+  refresh — it's saved to the browser automatically on every change and
+  restored on load. Fixes the long-standing "refresh resets the scene" gap.
+- Storage now sits behind a swappable adapter (`Store`), so cloud-synced
+  accounts can drop in later without touching the rest of the app.
 
 First public release. Live at https://bulat-eng.github.io/playa-plot/
 
