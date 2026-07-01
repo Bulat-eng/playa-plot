@@ -896,14 +896,12 @@ const REDIR={ emailRedirectTo:location.origin+location.pathname };
 function doSignUp(email,pw){ if(sb) runAuth(sb.auth.signUp({email,password:pw,options:REDIR}),
   "Account created — check your email to confirm, then sign in."); }
 function doSignIn(email,pw){ if(sb) runAuth(sb.auth.signInWithPassword({email,password:pw})); }
-function doMagic(email){ if(sb) runAuth(sb.auth.signInWithOtp({email,options:REDIR}),
-  "Magic link sent — check your email to finish signing in."); }
 function doGoogle(){ if(sb) runAuth(sb.auth.signInWithOAuth({provider:"google",
   options:{redirectTo:location.origin+location.pathname}})); }
 function doSignOut(){ if(sb) sb.auth.signOut(); }
 
 /* ---- account panel (renders per auth state) ---- */
-let acctTab="in";   // "in" | "up" | "magic"
+let acctTab="in";   // "in" | "up"
 function renderAccount(){
   const body=document.getElementById("acctBody"); if(!body) return;
   if(!sb){   // cloud not configured / offline
@@ -920,12 +918,12 @@ function renderAccount(){
     return;
   }
   const tab=(id,lbl)=>'<button data-tab="'+id+'" class="'+(acctTab===id?"on":"")+'">'+lbl+'</button>';
-  const primary=acctTab==="up"?"Create account":acctTab==="magic"?"Send magic link":"Sign in";
+  const primary=acctTab==="up"?"Create account":"Sign in";
   body.innerHTML=
-    '<div class="acct-tabs">'+tab("in","Sign in")+tab("up","Sign up")+tab("magic","Magic link")+'</div>'
+    '<div class="acct-tabs">'+tab("in","Sign in")+tab("up","Sign up")+'</div>'
     +'<div class="acct-row">'
     +'<input type="text" id="acEmail" placeholder="you@email.com" autocomplete="email">'
-    +(acctTab==="magic"?"":'<input type="password" id="acPw" placeholder="Password" autocomplete="current-password">')
+    +'<input type="password" id="acPw" placeholder="Password" autocomplete="'+(acctTab==="up"?"new-password":"current-password")+'">'
     +'<button class="primary" id="acGo">'+primary+'</button>'
     +'<button class="ghost gbtn" id="acGoogle">Continue with Google</button>'
     +'<p class="acct-msg" id="acctMsg"></p>'
@@ -933,12 +931,15 @@ function renderAccount(){
   body.querySelectorAll(".acct-tabs button").forEach(b=>b.onclick=()=>{acctTab=b.dataset.tab;renderAccount();});
   const email=()=>(document.getElementById("acEmail").value||"").trim();
   const pw=()=>{const e=document.getElementById("acPw");return e?e.value:"";};
-  document.getElementById("acGo").onclick=()=>{
+  const go=document.getElementById("acGo");
+  go.onclick=()=>{
     if(!email()){ acctMsg("Enter your email address.","err"); return; }
+    if(!pw()){ acctMsg("Enter your password.","err"); return; }
     if(acctTab==="up") doSignUp(email(),pw());
-    else if(acctTab==="magic") doMagic(email());
     else doSignIn(email(),pw());
   };
+  ["acEmail","acPw"].forEach(id=>{ const e=document.getElementById(id);
+    if(e) e.addEventListener("keydown",ev=>{ if(ev.key==="Enter") go.click(); }); });
   document.getElementById("acGoogle").onclick=doGoogle;
 }
 

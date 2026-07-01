@@ -5,10 +5,10 @@ All notable changes to Playa Plot are documented here.
 ## Unreleased
 
 ### Added
-- **Accounts + cloud-synced templates (optional).** Sign in with email+password,
-  a magic link, or Google to save named layouts that sync across devices. Backed
-  by Supabase with Row-Level Security so each person only ever sees their own
-  templates. New **Account** and **My templates** panels in the sidebar.
+- **Accounts + cloud-synced templates (optional).** Sign in with email+password
+  or Google to save named layouts that sync across devices. Backed by Supabase
+  with Row-Level Security so each person only ever sees their own templates. New
+  **Account** and **My templates** panels in the sidebar.
 - **Named templates work offline too.** Signed out (or with no cloud configured),
   templates save to the browser via the same panel — the app stays fully local and
   needs no setup to keep working.
