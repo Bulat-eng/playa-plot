@@ -9,7 +9,7 @@ violations. Includes a north/wind compass and a "Download PNG" export.
 
 ## Live site
 
-https://bulat-eng.github.io/playa-plot/
+https://playa-plot.pages.dev/
 
 ## How it works
 
@@ -19,5 +19,5 @@ browser. Open the file locally or host it as a static site.
 
 ## Updating the live site
 
-Edit `index.html`, commit, and push to `main`. GitHub Pages redeploys
+Edit `index.html`, commit, and push to `main`. Cloudflare Pages redeploys
 automatically within a minute or two.

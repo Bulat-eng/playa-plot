@@ -84,6 +84,29 @@
   .notes{font-size:11px;color:var(--muted);line-height:1.55}
   .notes b{color:var(--ink);font-weight:600}
   .tag{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  /* account + templates */
+  .muted-note{font-size:11px;color:var(--muted);line-height:1.55;margin:0}
+  .muted-note b{color:var(--ink);font-weight:600}
+  .acct-tabs{display:flex;gap:4px;margin-bottom:8px}
+  .acct-tabs button{flex:1;padding:6px 4px;font-size:11px}
+  .acct-tabs button.on{background:var(--btnh);border-color:var(--accent);color:var(--ink)}
+  .acct-row{display:flex;flex-direction:column;gap:8px}
+  .acct-msg{font-size:11px;line-height:1.45;margin:2px 0 0;color:var(--muted)}
+  .acct-msg.err{color:#F0B59E}
+  .acct-msg.ok{color:#A6CF98}
+  .acct-who{font-family:var(--mono);font-size:12px;color:var(--ink);word-break:break-all;margin:0}
+  .acct-who small{color:var(--muted);font-family:var(--sans)}
+  .gbtn{width:100%}
+  .tpl-save{display:flex;gap:8px;margin-bottom:10px}
+  .tpl-save input{flex:1;min-width:0}
+  .tpl-list{display:flex;flex-direction:column;gap:6px}
+  .tpl-item{display:flex;align-items:center;gap:6px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  .tpl-item .nm{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tpl-item .nm small{display:block;color:var(--muted);font-family:var(--mono);font-size:10px}
+  .tpl-item button{padding:4px 7px;font-size:11px}
+  .tpl-empty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}
+  .tpl-scope{font-size:10px;color:var(--muted);margin:10px 0 0;font-family:var(--mono)}
   @media(max-width:880px){
     main{flex-direction:column}
     aside{width:auto;border-left:none;border-top:1px solid var(--line)}
@@ -139,6 +162,11 @@
   </div>
 
   <aside>
+    <div class="sec" id="acctSec">
+      <h2>Account</h2>
+      <div id="acctBody"></div>
+    </div>
+
     <div class="sec">
       <h2>Add to plot</h2>
       <div class="addrow">
@@ -153,6 +181,16 @@
         <button data-add="struct"><span class="sw" style="background:#B9B2A4"></span>Structure</button>
         <button data-add="fuel"><span class="sw" style="background:#C4502E"></span>Generator / fuel</button>
       </div>
+    </div>
+
+    <div class="sec">
+      <h2>My templates</h2>
+      <div class="tpl-save">
+        <input type="text" id="tplName" placeholder="Name this layout">
+        <button id="tplSaveBtn">Save</button>
+      </div>
+      <div id="tplList" class="tpl-list"></div>
+      <p class="tpl-scope" id="tplScope"></p>
     </div>
 
     <div class="sec">
@@ -209,6 +247,9 @@
   </aside>
 </main>
 
+<!-- Optional cloud config (public values only). Absent = local-only mode; the
+     app runs fully without it. Copy config.example.js -> config.js to enable. -->
+<script src="config.js" onerror="window.__playaNoConfig=1"></script>
 <script>
 const NS="http://www.w3.org/2000/svg";
 const SANS="\"Helvetica Neue\",Arial,sans-serif";
@@ -767,11 +808,197 @@ function scheduleSave(){
   saveT=setTimeout(()=>{ Store.saveAutosave(serializeScene()); },400);
 }
 
+/* ========== Accounts + cloud templates ==========================================
+   Named layouts are read/written through `Templates`, which mirrors the LocalAdapter
+   shape (list / save / load / rename / remove — all async). It's LocalTemplates when
+   signed out (localStorage) and CloudTemplates (Supabase) when signed in, so the same
+   panel serves both. Cloud config is OPTIONAL: with no config.js the app is exactly the
+   old local-only tool. The scratch layout keeps autosaving locally (instant, offline);
+   cross-device sync happens through named templates. */
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---- template stores (identical async interface) ---- */
+const TPL_KEY="playaplot:templates:v1";
+const LocalTemplates={
+  name:"local",
+  _all(){ try{ return JSON.parse(localStorage.getItem(TPL_KEY))||[]; }catch(e){ return []; } },
+  _write(a){ try{ localStorage.setItem(TPL_KEY,JSON.stringify(a)); }catch(e){} },
+  async list(){ return this._all().map(({id,name,updated_at})=>({id,name,updated_at}))
+      .sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")); },
+  async save(name,data){ const a=this._all();
+    const row={ id:"loc-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      name, data, updated_at:new Date().toISOString() };
+    a.push(row); this._write(a); return row; },
+  async load(id){ const r=this._all().find(x=>x.id===id); if(!r) throw new Error("Template not found"); return r.data; },
+  async rename(id,name){ const a=this._all(); const r=a.find(x=>x.id===id);
+    if(r){ r.name=name; r.updated_at=new Date().toISOString(); this._write(a); } },
+  async remove(id){ this._write(this._all().filter(x=>x.id!==id)); },
+};
+const CloudTemplates={
+  name:"cloud",
+  async list(){ const {data,error}=await sb.from("templates")
+      .select("id,name,updated_at").order("updated_at",{ascending:false});
+    if(error) throw error; return data; },
+  async save(name,data){ const {data:u}=await sb.auth.getUser();
+    const {data:row,error}=await sb.from("templates")
+      .insert({name,data,user_id:u.user.id}).select("id,name,updated_at").single();
+    if(error) throw error; return row; },
+  async load(id){ const {data,error}=await sb.from("templates").select("data").eq("id",id).single();
+    if(error) throw error; return data.data; },
+  async rename(id,name){ const {error}=await sb.from("templates")
+      .update({name,updated_at:new Date().toISOString()}).eq("id",id); if(error) throw error; },
+  async remove(id){ const {error}=await sb.from("templates").delete().eq("id",id); if(error) throw error; },
+};
+let sb=null;                     // Supabase client (null until configured + loaded)
+let currentUser=null;
+let Templates=LocalTemplates;    // ← swapped to CloudTemplates on sign-in
+
+/* ---- optional cloud bootstrap ---- */
+function cloudConfigured(){
+  const c=window.PLAYA_CONFIG;
+  return !!(c && c.supabaseUrl && c.supabaseAnonKey &&
+    !/YOUR_|PROJECT_REF|ANON_PUBLIC/i.test(c.supabaseUrl+" "+c.supabaseAnonKey));
+}
+function loadScript(src){ return new Promise((res,rej)=>{
+  const s=document.createElement("script"); s.src=src; s.async=true;
+  s.onload=res; s.onerror=()=>rej(new Error("failed to load "+src));
+  document.head.appendChild(s);
+}); }
+async function initCloud(){
+  if(!cloudConfigured()){ renderAccount(); refreshTemplates(); return; }   // local-only
+  try{
+    await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2");
+    sb=window.supabase.createClient(window.PLAYA_CONFIG.supabaseUrl,
+                                    window.PLAYA_CONFIG.supabaseAnonKey);
+    const {data}=await sb.auth.getSession();
+    applyAuth(data.session ? data.session.user : null);
+    sb.auth.onAuthStateChange((_e,session)=>applyAuth(session ? session.user : null));
+  }catch(e){
+    console.warn("Playa Plot: cloud unavailable, staying local —",e);
+    sb=null; renderAccount(); refreshTemplates();
+  }
+}
+function applyAuth(user){
+  currentUser=user;
+  Templates = user ? CloudTemplates : LocalTemplates;
+  renderAccount();
+  refreshTemplates();
+}
+
+/* ---- auth actions ---- */
+function acctMsg(text,kind){ const m=document.getElementById("acctMsg");
+  if(m){ m.textContent=text||""; m.className="acct-msg"+(kind?(" "+kind):""); } }
+async function runAuth(promise,okText){
+  try{ const r=await promise; if(r&&r.error) throw r.error; if(okText) acctMsg(okText,"ok"); }
+  catch(e){ acctMsg((e&&e.message)||"Something went wrong.","err"); }
+}
+const REDIR={ emailRedirectTo:location.origin+location.pathname };
+function doSignUp(email,pw){ if(sb) runAuth(sb.auth.signUp({email,password:pw,options:REDIR}),
+  "Account created — check your email to confirm, then sign in."); }
+function doSignIn(email,pw){ if(sb) runAuth(sb.auth.signInWithPassword({email,password:pw})); }
+function doMagic(email){ if(sb) runAuth(sb.auth.signInWithOtp({email,options:REDIR}),
+  "Magic link sent — check your email to finish signing in."); }
+function doGoogle(){ if(sb) runAuth(sb.auth.signInWithOAuth({provider:"google",
+  options:{redirectTo:location.origin+location.pathname}})); }
+function doSignOut(){ if(sb) sb.auth.signOut(); }
+
+/* ---- account panel (renders per auth state) ---- */
+let acctTab="in";   // "in" | "up" | "magic"
+function renderAccount(){
+  const body=document.getElementById("acctBody"); if(!body) return;
+  if(!sb){   // cloud not configured / offline
+    body.innerHTML='<p class="muted-note">Cloud sync isn’t set up yet, so templates save to '
+      +'<b>this device only</b>. Add your Supabase keys in <span class="tag">config.js</span> '
+      +'to enable accounts and cross-device sync.</p>';
+    return;
+  }
+  if(currentUser){
+    body.innerHTML='<p class="acct-who">'+esc(currentUser.email||"signed in")
+      +'<br><small>Templates sync to your account across devices.</small></p>'
+      +'<button id="signOutBtn" class="ghost" style="margin-top:10px">Sign out</button>';
+    document.getElementById("signOutBtn").onclick=doSignOut;
+    return;
+  }
+  const tab=(id,lbl)=>'<button data-tab="'+id+'" class="'+(acctTab===id?"on":"")+'">'+lbl+'</button>';
+  const primary=acctTab==="up"?"Create account":acctTab==="magic"?"Send magic link":"Sign in";
+  body.innerHTML=
+    '<div class="acct-tabs">'+tab("in","Sign in")+tab("up","Sign up")+tab("magic","Magic link")+'</div>'
+    +'<div class="acct-row">'
+    +'<input type="text" id="acEmail" placeholder="you@email.com" autocomplete="email">'
+    +(acctTab==="magic"?"":'<input type="password" id="acPw" placeholder="Password" autocomplete="current-password">')
+    +'<button class="primary" id="acGo">'+primary+'</button>'
+    +'<button class="ghost gbtn" id="acGoogle">Continue with Google</button>'
+    +'<p class="acct-msg" id="acctMsg"></p>'
+    +'</div>';
+  body.querySelectorAll(".acct-tabs button").forEach(b=>b.onclick=()=>{acctTab=b.dataset.tab;renderAccount();});
+  const email=()=>(document.getElementById("acEmail").value||"").trim();
+  const pw=()=>{const e=document.getElementById("acPw");return e?e.value:"";};
+  document.getElementById("acGo").onclick=()=>{
+    if(!email()){ acctMsg("Enter your email address.","err"); return; }
+    if(acctTab==="up") doSignUp(email(),pw());
+    else if(acctTab==="magic") doMagic(email());
+    else doSignIn(email(),pw());
+  };
+  document.getElementById("acGoogle").onclick=doGoogle;
+}
+
+/* ---- templates panel ---- */
+async function refreshTemplates(){
+  const list=document.getElementById("tplList");
+  const scope=document.getElementById("tplScope");
+  if(!list) return;
+  if(scope) scope.textContent = (Templates.name==="cloud")
+    ? "☁ Synced to your account" : "💾 Saved on this device";
+  list.innerHTML='<p class="tpl-empty">Loading…</p>';
+  try{
+    const rows=await Templates.list();
+    if(!rows.length){ list.innerHTML='<p class="tpl-empty">No saved templates yet. '
+      +'Name your current layout above and hit Save.</p>'; return; }
+    list.innerHTML="";
+    rows.forEach(r=>{
+      const when=r.updated_at?new Date(r.updated_at).toLocaleDateString():"";
+      const row=document.createElement("div"); row.className="tpl-item";
+      row.innerHTML='<span class="nm">'+esc(r.name)+(when?'<small>'+when+'</small>':"")+'</span>'
+        +'<button data-a="load">Load</button><button data-a="ren" title="Rename">✎</button>'
+        +'<button data-a="del" title="Delete">✕</button>';
+      row.querySelector('[data-a="load"]').onclick=()=>loadTemplate(r.id);
+      row.querySelector('[data-a="ren"]').onclick=()=>renameTemplate(r.id,r.name);
+      row.querySelector('[data-a="del"]').onclick=()=>deleteTemplate(r.id,r.name);
+      list.appendChild(row);
+    });
+  }catch(e){ list.innerHTML='<p class="tpl-empty">Couldn’t load templates: '+esc(e.message||e)+'</p>'; }
+}
+async function saveTemplate(){
+  const inp=document.getElementById("tplName");
+  const name=(inp.value||"").trim(); if(!name){ inp.focus(); return; }
+  try{ await Templates.save(name,serializeScene()); inp.value=""; refreshTemplates(); }
+  catch(e){ alert("Save failed: "+(e.message||e)); }
+}
+async function loadTemplate(id){
+  try{ const data=await Templates.load(id);
+    if(applyScene(data)){ fitMode=true; fullRebuild(); } }
+  catch(e){ alert("Load failed: "+(e.message||e)); }
+}
+async function renameTemplate(id,cur){
+  const name=prompt("Rename template:",cur); if(name==null) return;
+  const t=name.trim(); if(!t) return;
+  try{ await Templates.rename(id,t); refreshTemplates(); }
+  catch(e){ alert("Rename failed: "+(e.message||e)); }
+}
+async function deleteTemplate(id,name){
+  if(!confirm("Delete template “"+name+"”? This can’t be undone.")) return;
+  try{ await Templates.remove(id); refreshTemplates(); }
+  catch(e){ alert("Delete failed: "+(e.message||e)); }
+}
+document.getElementById("tplSaveBtn").onclick=saveTemplate;
+document.getElementById("tplName").addEventListener("keydown",e=>{ if(e.key==="Enter") saveTemplate(); });
+
 /* ---------- init ---------- */
 fillSelect("rvSel",RV_TYPES);
 fillSelect("tentSel",TENT_TYPES);
 if(!loadAutosave()) defaultScene();   // restore last session, else the starter scene
 fullRebuild();
+initCloud();                          // wires the account panel + templates (local or cloud)
 </script>
 </body>
 </html>

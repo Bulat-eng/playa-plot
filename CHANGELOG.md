@@ -5,13 +5,24 @@ All notable changes to Playa Plot are documented here.
 ## Unreleased
 
 ### Added
+- **Accounts + cloud-synced templates (optional).** Sign in with email+password,
+  a magic link, or Google to save named layouts that sync across devices. Backed
+  by Supabase with Row-Level Security so each person only ever sees their own
+  templates. New **Account** and **My templates** panels in the sidebar.
+- **Named templates work offline too.** Signed out (or with no cloud configured),
+  templates save to the browser via the same panel — the app stays fully local and
+  needs no setup to keep working.
 - **Layout autosave (local persistence).** Your layout now survives a page
   refresh — it's saved to the browser automatically on every change and
   restored on load. Fixes the long-standing "refresh resets the scene" gap.
-- Storage now sits behind a swappable adapter (`Store`), so cloud-synced
-  accounts can drop in later without touching the rest of the app.
+- Storage now sits behind swappable adapters (`Store` for autosave, `Templates`
+  for named layouts), so the cloud backend drops in without touching the rest of
+  the app.
 
-First public release. Live at https://bulat-eng.github.io/playa-plot/
+### Changed
+- Canonical live site moved to https://playa-plot.pages.dev/ (Cloudflare Pages).
+
+First public release.
 
 ### Added
 - Drag-and-drop Black Rock City hub layout planner, shipped as a single
