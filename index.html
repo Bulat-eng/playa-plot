@@ -64,6 +64,8 @@
   .sw{width:13px;height:13px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.35)}
   .sw.round{border-radius:50%}
   .editor{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;display:none}
+  @keyframes edflash{0%{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}100%{border-color:var(--line);box-shadow:none}}
+  .editor.flash{animation:edflash 1s ease-out}
   .editor .etype{font-family:var(--mono);font-size:11px;color:var(--muted);margin:0 0 9px}
   .editor .etype b{color:var(--ink);font-weight:600}
   .editor .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
@@ -114,6 +116,23 @@
   .tpl-item button{padding:4px 7px;font-size:11px}
   .tpl-empty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}
   .tpl-scope{font-size:10px;color:var(--muted);margin:10px 0 0;font-family:var(--mono)}
+  /* share & export */
+  .sharegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sharegrid #shareBtn{grid-column:1/-1}
+  /* per-item checkbox (covered common area) */
+  .editor .chk{display:none;align-items:center;gap:7px;font-size:12px;color:var(--ink);margin-top:10px;cursor:pointer}
+  .editor .chk input{accent-color:var(--accent)}
+  /* first-run setup wizard */
+  .wiz{position:fixed;inset:0;background:rgba(10,8,5,.62);display:none;align-items:center;
+    justify-content:center;z-index:40;padding:18px}
+  .wizcard{background:var(--panel2);border:1px solid var(--btnb);border-radius:14px;
+    padding:22px 22px 18px;width:min(430px,100%);box-shadow:0 18px 60px rgba(0,0,0,.55)}
+  .wizcard .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+  .wizcard h3{margin:0 0 6px;font-size:22px;font-weight:800;letter-spacing:-.01em}
+  .wizsub{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 14px}
+  .wizgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .wizbtns{display:flex;gap:8px;margin-top:16px}
+  .wizbtns .primary{flex:1}
   @media(max-width:880px){
     main{flex-direction:column}
     aside{width:auto;border-left:none;border-top:1px solid var(--line)}
@@ -175,6 +194,16 @@
     </div>
 
     <div class="sec">
+      <h2>My templates</h2>
+      <div class="tpl-save">
+        <input type="text" id="tplName" placeholder="Name this layout">
+        <button id="tplSaveBtn">Save</button>
+      </div>
+      <div id="tplList" class="tpl-list"></div>
+      <p class="tpl-scope" id="tplScope"></p>
+    </div>
+
+    <div class="sec">
       <h2>Add to plot</h2>
       <div class="addrow">
         <select id="rvSel" aria-label="RV type"></select>
@@ -187,20 +216,16 @@
       <div class="addgrid2">
         <button data-add="struct"><span class="sw" style="background:#B9B2A4"></span>Structure</button>
         <button data-add="fuel"><span class="sw" style="background:#C4502E"></span>Generator / fuel</button>
+        <button data-add="common"><span class="sw" style="background:#D8C9A3"></span>Common area</button>
+        <button data-add="shade"><span class="sw" style="background:rgba(91,103,112,.45)"></span>Shade structure</button>
+        <button data-add="firelane"><span class="sw" style="background:repeating-linear-gradient(45deg,#C43B3B 0 3px,#F4E4E0 3px 6px)"></span>Fire lane</button>
+        <button data-add="road"><span class="sw" style="background:#BFB097"></span>Road</button>
+        <button data-add="bike"><span class="sw" style="background:#3D6B4F"></span>Bike</button>
+        <button data-add="power"><span class="sw" style="background:#F2C230"></span>Power</button>
       </div>
     </div>
 
-    <div class="sec">
-      <h2>My templates</h2>
-      <div class="tpl-save">
-        <input type="text" id="tplName" placeholder="Name this layout">
-        <button id="tplSaveBtn">Save</button>
-      </div>
-      <div id="tplList" class="tpl-list"></div>
-      <p class="tpl-scope" id="tplScope"></p>
-    </div>
-
-    <div class="sec">
+    <div class="sec" id="selSec">
       <h2>Selected item</h2>
       <div class="editor" id="editor">
         <p class="etype" id="edType"></p>
@@ -209,6 +234,7 @@
           <div class="field"><label>Width (ft)</label><input type="number" id="edW" min="1" step="0.5"></div>
           <div class="field"><label>Depth (ft)</label><input type="number" id="edH" min="1" step="0.5"></div>
         </div>
+        <label class="chk" id="edCoveredWrap"><input type="checkbox" id="edCovered"> Covered &mdash; render as a tent</label>
         <p class="hint" id="edHint">Drag on the plot to move. Rotate flips width and depth. Double-click an item to rename.</p>
       </div>
       <p class="notes" id="noSel" style="margin-top:0">Click any item on the plot to rename, resize, rotate, or delete it. Double-click to jump straight to renaming.</p>
@@ -221,11 +247,26 @@
     </div>
 
     <div class="sec">
+      <h2>Share &amp; export</h2>
+      <div class="sharegrid">
+        <button id="shareBtn">&#128279; Copy share link</button>
+        <button id="jsonExportBtn">&#8595; Export JSON</button>
+        <button id="jsonImportBtn">&#8593; Import JSON</button>
+        <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
+      </div>
+      <p class="muted-note" id="shareMsg" style="margin-top:8px"></p>
+    </div>
+
+    <div class="sec">
       <h2>Legend</h2>
       <div class="legend">
         <div class="li"><span class="sw" style="background:#3E7C8C"></span>RV &mdash; cab = drivable, hitch = trailer</div>
         <div class="li"><span class="sw round" style="background:#9FB0BC"></span>Shiftpod &mdash; round</div>
-        <div class="li"><span class="sw round" style="background:#E2A14C"></span>Tent &mdash; Kodiak, bell, dome, common</div>
+        <div class="li"><span class="sw round" style="background:#E2A14C"></span>Tent &mdash; Kodiak, bell, dome</div>
+        <div class="li"><span class="sw" style="background:#D8C9A3"></span>Common area &mdash; open zone; tick &ldquo;Covered&rdquo; for a tent</div>
+        <div class="li"><span class="sw" style="background:rgba(91,103,112,.45)"></span>Shade structure &mdash; translucent, drawn above items</div>
+        <div class="li"><span class="sw" style="background:repeating-linear-gradient(45deg,#C43B3B 0 3px,#F4E4E0 3px 6px)"></span>Fire lane &mdash; keep clear</div>
+        <div class="li"><span class="sw" style="background:#F2C230"></span>Electrical / power drop</div>
         <div class="li"><span class="sw" style="background:#C4502E"></span>Generator / fuel + clearance ring</div>
         <div class="li"><span class="sw" style="background:#15110B;border-color:#FFD24A"></span>Gold-edged mark = door</div>
       </div>
@@ -249,10 +290,44 @@
     </div>
 
     <div class="sec" style="margin-bottom:0">
-      <p class="tag">Playa Plot · v0.1.0</p>
+      <p class="tag">Playa Plot · v0.2.0</p>
     </div>
   </aside>
 </main>
+
+<!-- First-run setup wizard: shown once, when there's no saved layout yet -->
+<div class="wiz" id="wiz">
+  <div class="wizcard">
+    <p class="eyebrow">First time here?</p>
+    <h3>Set up your camp</h3>
+    <p class="wizsub">Rough numbers are fine &mdash; you can add, remove, resize, and rename
+      everything on the plot afterwards.</p>
+    <div class="wizgrid">
+      <div class="field">
+        <label>Plot size (ft)</label>
+        <div class="row">
+          <input type="number" id="wzW" value="70" min="10" max="400" step="1">
+          <span class="x">&times;</span>
+          <input type="number" id="wzD" value="50" min="10" max="400" step="1">
+        </div>
+      </div>
+      <div class="field">
+        <label>Common area</label>
+        <select id="wzCommon">
+          <option value="open" selected>Yes &mdash; open area</option>
+          <option value="covered">Yes &mdash; covered (tent)</option>
+          <option value="none">No common area</option>
+        </select>
+      </div>
+      <div class="field"><label>RVs / trailers</label><input type="number" id="wzRV" value="1" min="0" max="12" step="1"></div>
+      <div class="field"><label>Tents / pods</label><input type="number" id="wzTent" value="1" min="0" max="16" step="1"></div>
+    </div>
+    <div class="wizbtns">
+      <button class="primary" id="wzGo">Build my plot</button>
+      <button class="ghost" id="wzSkip">Skip &mdash; start simple</button>
+    </div>
+  </div>
+</div>
 
 <!-- Optional cloud config (public values only). Absent = local-only mode; the
      app runs fully without it. Copy config.example.js -> config.js to enable. -->
@@ -270,13 +345,20 @@ let selectedId=null;
 let items=[];
 let uid=1;
 
-// category = colour + shape + behaviour
+// category = colour + shape + behaviour. layer: 0 = ground (under items),
+// 1 = default, 2 = overhead (shade — drawn above everything, click-through fill)
 const CATS={
-  rv:    {fill:"#3E7C8C", stroke:"#214750", text:"#EAF3F5", shape:"rv"},
-  pod:   {fill:"#9FB0BC", stroke:"#566069", text:"#1c2226", shape:"round"},
-  tent:  {fill:"#E2A14C", stroke:"#9A6A26", text:"#3a2509", shape:"round"},
-  struct:{fill:"#B9B2A4", stroke:"#736C60", text:"#241f17", shape:"rect"},
-  fuel:  {fill:"#C4502E", stroke:"#7E2F18", text:"#ffffff", shape:"rect", clearance:10},
+  rv:      {fill:"#3E7C8C", stroke:"#214750", text:"#EAF3F5", shape:"rv"},
+  pod:     {fill:"#9FB0BC", stroke:"#566069", text:"#1c2226", shape:"round"},
+  tent:    {fill:"#E2A14C", stroke:"#9A6A26", text:"#3a2509", shape:"round"},
+  common:  {fill:"#D8C9A3", stroke:"#8A7A54", text:"#5a4c30", shape:"common", layer:0},
+  struct:  {fill:"#B9B2A4", stroke:"#736C60", text:"#241f17", shape:"rect"},
+  fuel:    {fill:"#C4502E", stroke:"#7E2F18", text:"#ffffff", shape:"rect", clearance:10},
+  shade:   {fill:"#5B6770", stroke:"#39424B", text:"#2b3238", shape:"shade", layer:2},
+  firelane:{fill:"#C43B3B", stroke:"#A32E2E", text:"#7E1F1F", shape:"lane", layer:0},
+  road:    {fill:"#BFB097", stroke:"#8A7D66", text:"#5a5140", shape:"road", layer:0},
+  bike:    {fill:"#3D6B4F", stroke:"#24422F", text:"#EAF3EC", shape:"bike"},
+  power:   {fill:"#F2C230", stroke:"#9C7A10", text:"#241f0a", shape:"power"},
 };
 
 // drive: "motor" = driver cab, "tow" = hitch. dims = footprint with slides in.
@@ -298,13 +380,18 @@ const TENT_TYPES=[
   {key:"bell5",   cat:"tent", label:"Bell tent 5m",   w:16, h:16},
   {key:"bell6",   cat:"tent", label:"Bell tent 6m",   w:20, h:20},
   {key:"dome",    cat:"tent", label:"Dome tent",      w:10, h:10},
-  {key:"common",  cat:"tent", label:"Common tent",    w:20, h:20},
 ];
 const KEY2TYPE={};
 RV_TYPES.forEach(t=>KEY2TYPE[t.key]={...t,cat:"rv"});
 TENT_TYPES.forEach(t=>KEY2TYPE[t.key]=t);
 KEY2TYPE.struct={key:"struct",cat:"struct",label:"Structure"};
 KEY2TYPE.fuel={key:"fuel",cat:"fuel",label:"Generator / fuel"};
+KEY2TYPE.common={key:"common",cat:"common",label:"Common area",w:20,h:20};
+KEY2TYPE.shade={key:"shade",cat:"shade",label:"Shade structure",w:20,h:20};
+KEY2TYPE.firelane={key:"firelane",cat:"firelane",label:"Fire lane",w:30,h:10};
+KEY2TYPE.road={key:"road",cat:"road",label:"Road",w:30,h:10};
+KEY2TYPE.bike={key:"bike",cat:"bike",label:"Bike",w:6,h:2};
+KEY2TYPE.power={key:"power",cat:"power",label:"Power",w:3,h:3};
 
 function fmtDim(n){ return Number.isInteger(n)?(""+n):n.toFixed(1).replace(/\.0$/,""); }
 
@@ -322,20 +409,10 @@ function fillSelect(id,list){
 function defaultScene(){
   items=[]; uid=1; selectedId=null;
   plotW=70; plotD=50;
-  const add=(cat,key,label,w,h,drive,x,y,rot)=>{
-    items.push({id:uid++,cat,key,label,w,h,drive:drive||null,x,y,rot:rot||0});
-  };
-  // windward (west/left) edge: a drivable van + a travel trailer as a windbreak
-  add("rv","van","Alex",20,8,"motor",3,3,90);
-  add("rv","tt","Sam",24,8,"tow",3,24,90);
-  // central common tent
-  add("tent","common","Common tent",20,20,null,40,15,0);
-  // shiftpods around the common area, pre-named so renaming is obvious
-  add("pod","shiftpod","Jordan",12,12,null,22,3,0);
-  add("pod","shiftpod","Riley",12,12,null,22,34,0);
-  add("pod","shiftpod","Casey",12,12,null,40,2,0);
-  add("pod","shiftpod","Morgan",12,12,null,56,3,0);
-  add("pod","shiftpod","Taylor",12,12,null,56,36,0);
+  // minimal starter: one RV as a windbreak on the west edge + one pod. The first-run
+  // wizard (below) builds a fuller scene from the user's own counts.
+  items.push({id:uid++,cat:"rv",key:"classc",label:"RV",w:28,h:8,drive:"motor",x:3,y:11,rot:90});
+  items.push({id:uid++,cat:"pod",key:"shiftpod",label:"Tent",w:12,h:12,drive:null,x:22,y:19,rot:0});
   document.getElementById("plotW").value=70;
   document.getElementById("plotD").value=50;
 }
@@ -359,6 +436,12 @@ function buildChrome(svg){
   const W=ML+plotW*scale+MR, H=MT+plotD*scale+MB;
   svg.setAttribute("width",W); svg.setAttribute("height",H);
   svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  // defs: diagonal hatch for fire lanes (lives in the svg, so PNG export keeps it)
+  const defs=el("defs",{},svg);
+  const pat=el("pattern",{id:"hatchFire",width:8,height:8,patternUnits:"userSpaceOnUse",
+    patternTransform:"rotate(45)"},defs);
+  el("rect",{width:8,height:8,fill:"rgba(196,59,59,0.08)"},pat);
+  el("rect",{width:3.5,height:8,fill:"rgba(196,59,59,0.42)"},pat);
   // background outside + plot surface
   el("rect",{x:0,y:0,width:W,height:H,fill:"#ECE6D8"},svg);
   el("rect",{x:ML,y:MT,width:plotW*scale,height:plotD*scale,fill:"#ECE6D8",
@@ -453,6 +536,64 @@ function drawBody(g,it,c,w,h){
     return;
   }
 
+  // invisible fat border band: the move-grab zone for shade / common area
+  const grabBand=()=>el("rect",{x:-hw,y:-hh,width:w,height:h,rx:4,ry:4,fill:"none",
+    stroke:"rgba(0,0,0,0)","stroke-width":Math.max(10,0.9*scale),"pointer-events":"stroke"},g);
+
+  if(shape==="common"){
+    if(it.covered){ // covered = a real tent: solid canvas + door
+      el("rect",{x:-hw,y:-hh,width:w,height:h,rx:6,ry:6,fill:c.fill,stroke:c.stroke,"stroke-width":1.8},g);
+      door(g,0,hh,Math.min(hw*0.5,1.6*scale));
+    } else {        // open = a zone, not a structure: light fill, dashed edge
+      el("rect",{x:-hw,y:-hh,width:w,height:h,rx:6,ry:6,fill:c.fill,"fill-opacity":0.25,
+        stroke:c.stroke,"stroke-width":1.6,"stroke-dasharray":"7 5"},g);
+    }
+    grabBand();     // widen the edge grab zone (interior stays draggable too — it's the bottom layer)
+    return;
+  }
+
+  if(shape==="shade"){
+    // translucent canopy drawn above everything; the fill is click-through so items
+    // under it stay directly clickable — move it by its edge, resize by the handles
+    el("rect",{x:-hw,y:-hh,width:w,height:h,rx:4,ry:4,fill:c.fill,"fill-opacity":0.32,
+      stroke:c.stroke,"stroke-width":1.5,"pointer-events":"none"},g);
+    el("path",{d:`M${-hw} ${-hh} L${hw} ${hh} M${hw} ${-hh} L${-hw} ${hh}`,
+      stroke:c.stroke,"stroke-width":1,"stroke-opacity":0.3,"pointer-events":"none"},g);
+    grabBand();
+    return;
+  }
+
+  if(shape==="lane"){ // fire lane: hatched keep-clear strip
+    el("rect",{x:-hw,y:-hh,width:w,height:h,fill:"url(#hatchFire)",stroke:c.stroke,
+      "stroke-width":1.4,"stroke-dasharray":"6 4"},g);
+    return;
+  }
+
+  if(shape==="road"){ // packed-dust strip + dashed centre line
+    el("rect",{x:-hw,y:-hh,width:w,height:h,fill:c.fill,stroke:c.stroke,"stroke-width":1.2},g);
+    el("line",{x1:-hw+4,y1:0,x2:hw-4,y2:0,stroke:"#F5EFE2","stroke-width":1.6,
+      "stroke-dasharray":"8 6"},g);
+    return;
+  }
+
+  if(shape==="bike"){ // two wheels + frame line
+    el("rect",{x:-hw,y:-hh,width:w,height:h,rx:2,ry:2,fill:c.fill,stroke:c.stroke,"stroke-width":1.2},g);
+    const r=Math.min(hh*0.65,w*0.16);
+    el("circle",{cx:-hw+w*0.25,cy:0,r,fill:"none",stroke:c.text,"stroke-width":1.2},g);
+    el("circle",{cx:hw-w*0.25,cy:0,r,fill:"none",stroke:c.text,"stroke-width":1.2},g);
+    el("line",{x1:-hw+w*0.25,y1:0,x2:hw-w*0.25,y2:0,stroke:c.text,"stroke-width":1.2},g);
+    return;
+  }
+
+  if(shape==="power"){ // panel box + lightning bolt
+    const r=Math.min(3,Math.min(hw,hh)*0.4);
+    el("rect",{x:-hw,y:-hh,width:w,height:h,rx:r,ry:r,fill:c.fill,stroke:c.stroke,"stroke-width":1.4},g);
+    const s=Math.min(w,h);
+    el("path",{d:`M ${s*0.10} ${-s*0.36} L ${-s*0.16} ${s*0.06} L ${-s*0.02} ${s*0.06} `
+      +`L ${-s*0.10} ${s*0.36} L ${s*0.16} ${-s*0.06} L ${s*0.02} ${-s*0.06} Z`,fill:c.stroke},g);
+    return;
+  }
+
   // plain rectangle (structure / fuel)
   const r=Math.min(4,Math.min(hw,hh)*0.5);
   el("rect",{x:-hw,y:-hh,width:w,height:h,rx:r,ry:r,fill:c.fill,stroke:c.stroke,"stroke-width":1.4},g);
@@ -472,10 +613,13 @@ function drawLabel(g,it,c,ew,eh){
   }
 }
 
+function layerRank(it){ const l=CATS[it.cat].layer; return l==null?1:l; }
+
 function drawItems(svg){
   const layer=svg.querySelector("#itemsLayer");
   while(layer.firstChild) layer.removeChild(layer.firstChild);
-  items.forEach(it=>{
+  // ground zones first, shade canopies last (stable sort keeps insertion order within a layer)
+  items.slice().sort((a,b)=>layerRank(a)-layerRank(b)).forEach(it=>{
     const c=CATS[it.cat], d=eff(it);
     const ex=fx(it.x), ey=fy(it.y), ew=d.w*scale, eh=d.h*scale;
     const cx=ex+ew/2, cy=ey+eh/2;
@@ -503,6 +647,18 @@ function drawItems(svg){
 
     g.addEventListener("pointerdown",e=>onDown(e,it.id));
     g.addEventListener("dblclick",e=>{e.preventDefault();startRename(it.id);});
+
+    // resize handles on the selected zone items (corners + mid-edges, screen space)
+    if(it.id===selectedId && (it.cat==="shade"||it.cat==="common")){
+      const HS=7;
+      [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].forEach(([hx,hy])=>{
+        const cx2=ex+(hx+1)/2*ew, cy2=ey+(hy+1)/2*eh;
+        const cursor=(hx&&hy)?(hx===hy?"nwse-resize":"nesw-resize"):(hy?"ns-resize":"ew-resize");
+        const h2=el("rect",{x:cx2-HS/2,y:cy2-HS/2,width:HS,height:HS,rx:1.5,ry:1.5,
+          fill:"#fff",stroke:"#FF2E88","stroke-width":1.4,style:"cursor:"+cursor},g);
+        h2.addEventListener("pointerdown",ev=>startResize(ev,it.id,hx,hy));
+      });
+    }
   });
 }
 
@@ -536,18 +692,55 @@ function fullRebuild(){
 
 /* ---------- interaction ---------- */
 let drag=null;
+// bring the editor panel into view when the selection changes (not on every drag).
+// instant scroll on purpose: smooth scrollIntoView is silently dropped in some
+// environments (embedded webviews / reduced motion), and the flash covers the cue.
+function revealEditor(){
+  const sec=document.getElementById("selSec");
+  if(sec.scrollIntoView) sec.scrollIntoView({block:"nearest"});
+  const ed=document.getElementById("editor");
+  ed.classList.remove("flash"); void ed.offsetWidth;   // restart the animation
+  ed.classList.add("flash");
+}
 function onDown(e,id){
   e.preventDefault();
+  const changed=selectedId!==id;
   selectedId=id;
   const it=items.find(i=>i.id===id);
-  drag={id,px:e.clientX,py:e.clientY,ox:it.x,oy:it.y,moved:false};
+  drag={id,mode:"move",px:e.clientX,py:e.clientY,ox:it.x,oy:it.y,moved:false};
   window.addEventListener("pointermove",onMove);
   window.addEventListener("pointerup",onUp);
   render();
+  if(changed) revealEditor();
+}
+function startResize(e,id,hx,hy){
+  e.preventDefault(); e.stopPropagation();      // don't also start a move-drag on the item group
+  selectedId=id;
+  const it=items.find(i=>i.id===id); if(!it) return;
+  const d=eff(it);
+  drag={id,mode:"resize",hx,hy,px:e.clientX,py:e.clientY,ox:it.x,oy:it.y,ow:d.w,oh:d.h,moved:false};
+  window.addEventListener("pointermove",onMove);
+  window.addEventListener("pointerup",onUp);
 }
 function onMove(e){
   if(!drag) return;
   const it=items.find(i=>i.id===drag.id);
+  if(drag.mode==="resize"){
+    // work on the effective (screen-space) edges, then map back through rotation
+    const mx=(e.clientX-drag.px)/scale, my=(e.clientY-drag.py)/scale;
+    let L=drag.ox, T=drag.oy, R=drag.ox+drag.ow, B=drag.oy+drag.oh;
+    if(drag.hx<0) L+=mx; if(drag.hx>0) R+=mx;
+    if(drag.hy<0) T+=my; if(drag.hy>0) B+=my;
+    if(snap){ L=Math.round(L); T=Math.round(T); R=Math.round(R); B=Math.round(B); }
+    L=Math.max(0,Math.min(L,R-1)); T=Math.max(0,Math.min(T,B-1));   // ≥1 ft, on the plot
+    R=Math.min(plotW,Math.max(R,L+1)); B=Math.min(plotD,Math.max(B,T+1));
+    it.x=L; it.y=T;
+    if(it.rot===90||it.rot===270){ it.w=B-T; it.h=R-L; }
+    else { it.w=R-L; it.h=B-T; }
+    drag.moved=true;
+    render();
+    return;
+  }
   let nx=drag.ox+(e.clientX-drag.px)/scale;
   let ny=drag.oy+(e.clientY-drag.py)/scale;
   if(snap){nx=Math.round(nx);ny=Math.round(ny);}
@@ -609,9 +802,17 @@ function syncEditor(){
   document.getElementById("edLabel").value=it.label;
   document.getElementById("edW").value=it.w;
   document.getElementById("edH").value=it.h;
+  const cov=document.getElementById("edCoveredWrap");
+  cov.style.display = it.cat==="common" ? "flex" : "none";
+  if(it.cat==="common") document.getElementById("edCovered").checked=!!it.covered;
+  const HINTS={
+    fuel:"Keep the dashed ring clear of every structure.",
+    shade:"Translucent — drawn above other items; clicks inside it reach whatever sits underneath. Drag its edge to move it, pull the square handles to resize.",
+    firelane:"Keep this strip clear — anything overlapping it raises a warning.",
+    common:"Drag the edge or inside to move; pull the square handles to resize. Tick “Covered” to render it as a tent.",
+  };
   document.getElementById("edHint").textContent =
-    it.cat==="fuel" ? "Keep the dashed ring clear of every structure."
-    : "Drag to move. Rotate flips width and depth. Rename above to use a person's name.";
+    HINTS[it.cat] || "Drag to move. Rotate flips width and depth. Rename above to use a person's name.";
 }
 document.getElementById("edLabel").addEventListener("input",e=>{
   const it=items.find(i=>i.id===selectedId); if(it){it.label=e.target.value;render();}
@@ -627,18 +828,23 @@ function editDim(which,val){
 }
 document.getElementById("edW").addEventListener("input",e=>editDim("w",e.target.value));
 document.getElementById("edH").addEventListener("input",e=>editDim("h",e.target.value));
+document.getElementById("edCovered").addEventListener("change",e=>{
+  const it=items.find(i=>i.id===selectedId);
+  if(it&&it.cat==="common"){ it.covered=e.target.checked; render(); }
+});
 
 /* ---------- stats ---------- */
 function renderStats(){
   const box=document.getElementById("stats");
   const warn=document.getElementById("warnBox");
   box.innerHTML=""; warn.innerHTML="";
-  const counts={rv:0,pod:0,tent:0,struct:0,fuel:0};
+  const counts={rv:0,pod:0,tent:0,common:0,struct:0,fuel:0,shade:0,firelane:0,road:0,bike:0,power:0};
   let area=0, minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9, has=false;
+  const NO_AREA={fuel:1,firelane:1,road:1};    // ground markings aren't structure area
   items.forEach(it=>{
     counts[it.cat]++;
     const d=eff(it);
-    if(it.cat!=="fuel"){ area+=d.w*d.h; }
+    if(!NO_AREA[it.cat]){ area+=d.w*d.h; }
     minX=Math.min(minX,it.x); minY=Math.min(minY,it.y);
     maxX=Math.max(maxX,it.x+d.w); maxY=Math.max(maxY,it.y+d.h);
     has=true;
@@ -658,7 +864,13 @@ function renderStats(){
   if(counts.rv)inv.push(counts.rv+" RV"+(counts.rv>1?"s":""));
   if(counts.pod)inv.push(counts.pod+" Shiftpod"+(counts.pod>1?"s":""));
   if(counts.tent)inv.push(counts.tent+" tent"+(counts.tent>1?"s":""));
+  if(counts.common)inv.push(counts.common+" common area"+(counts.common>1?"s":""));
   if(counts.struct)inv.push(counts.struct+" structure"+(counts.struct>1?"s":""));
+  if(counts.shade)inv.push(counts.shade+" shade"+(counts.shade>1?"s":""));
+  if(counts.firelane)inv.push(counts.firelane+" fire lane"+(counts.firelane>1?"s":""));
+  if(counts.road)inv.push(counts.road+" road"+(counts.road>1?"s":""));
+  if(counts.bike)inv.push(counts.bike+" bike"+(counts.bike>1?"s":""));
+  if(counts.power)inv.push(counts.power+" power");
   if(counts.fuel)inv.push(counts.fuel+" fuel");
   row("Inventory", inv.length?inv.join(", "):"&mdash;","","col");
 
@@ -671,9 +883,19 @@ function renderStats(){
     const fd=eff(f), cx=f.x+fd.w/2, cy=f.y+fd.h/2, clr=CATS.fuel.clearance;
     items.forEach(o=>{
       if(o.id===f.id||o.cat==="fuel") return;
+      if(o.cat==="firelane"||o.cat==="road") return;   // ground strips aren't ignition risks
       const od=eff(o);
       if(rectDist(cx,cy,o.x,o.y,od.w,od.h)<clr)
         w.push(`“${o.label}” is inside the 10-ft fuel clearance of “${f.label}”.`);
+    });
+  });
+  // fire lanes must stay clear
+  const overlaps=(a,b)=>{const ad=eff(a),bd=eff(b);
+    return a.x<b.x+bd.w && b.x<a.x+ad.w && a.y<b.y+bd.h && b.y<a.y+ad.h;};
+  items.filter(i=>i.cat==="firelane").forEach(f=>{
+    items.forEach(o=>{
+      if(o.id===f.id||o.cat==="firelane"||o.cat==="road") return;  // roads may cross lanes
+      if(overlaps(f,o)) w.push(`“${o.label}” is blocking fire lane “${f.label}”.`);
     });
   });
   if(w.length){
@@ -690,6 +912,7 @@ function addType(key){
   const label=(ty.cat==="rv")?ty.label.replace(/\s*\(.*\)/,""):ty.label;
   const it={id:uid++,cat:ty.cat,key:ty.key,label,w,h,rot:0,drive:ty.drive||null,
     x:Math.min(6,Math.max(0,plotW-w)),y:Math.min(6,Math.max(0,plotD-h))};
+  if(ty.cat==="common") it.covered=false;   // open zone by default
   items.push(it); selectedId=it.id; render();
 }
 
@@ -785,7 +1008,7 @@ let Store=LocalAdapter;   // ← swap to a CloudAdapter (same shape) when signed
 
 // the serializable scene = everything needed to redraw; zoom/selection are left out on purpose
 function serializeScene(){
-  return { v:1, plotW, plotD, items: items.map(it=>({...it})) };
+  return { v:2, plotW, plotD, items: items.map(it=>({...it})) };
 }
 function applyScene(s){
   if(!s || !Array.isArray(s.items)) return false;
@@ -793,9 +1016,14 @@ function applyScene(s){
   plotW=clamp(Math.round(+s.plotW)||70,10,400);
   plotD=clamp(Math.round(+s.plotD)||50,10,400);
   // sanitise each item so a corrupt/edited save can't crash the renderer
-  items=s.items.filter(it=>it&&CATS[it.cat]).map(it=>({
+  items=s.items.map(it=>{
+    // v1 saves stored the common tent under cat "tent"; it's now its own cat, covered
+    if(it && it.cat==="tent" && it.key==="common") it={...it,cat:"common",covered:true};
+    return it;
+  }).filter(it=>it&&CATS[it.cat]).map(it=>({
     id:+it.id||0, cat:it.cat, key:it.key, label:String(it.label??""),
     w:Math.max(1,+it.w||1), h:Math.max(1,+it.h||1), drive:it.drive||null,
+    covered:!!it.covered,
     x:+it.x||0, y:+it.y||0, rot:[0,90,180,270].includes(+it.rot)?+it.rot:0,
   }));
   uid=items.reduce((m,it)=>Math.max(m,it.id),0)+1;   // never reuse a saved id
@@ -814,6 +1042,126 @@ function scheduleSave(){
   clearTimeout(saveT);
   saveT=setTimeout(()=>{ Store.saveAutosave(serializeScene()); },400);
 }
+
+/* ---------- share link (scene in the URL hash) + JSON export / import ----------
+   #z= deflate-compressed base64url (modern browsers), #j= plain base64url fallback.
+   No backend: the layout travels inside the link itself. */
+const b64u={
+  enc(bytes){ let s=""; bytes.forEach(b=>s+=String.fromCharCode(b));
+    return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); },
+  dec(str){ str=str.replace(/-/g,"+").replace(/_/g,"/");
+    while(str.length%4) str+="=";
+    return Uint8Array.from(atob(str),c=>c.charCodeAt(0)); },
+};
+async function pipeBytes(bytes,stream){
+  const out=new Response(new Blob([bytes]).stream().pipeThrough(stream));
+  return new Uint8Array(await out.arrayBuffer());
+}
+async function sceneToHash(){
+  const json=new TextEncoder().encode(JSON.stringify(serializeScene()));
+  if(typeof CompressionStream!=="undefined"){
+    try{ return "#z="+b64u.enc(await pipeBytes(json,new CompressionStream("deflate-raw"))); }
+    catch(e){ /* fall through to uncompressed */ }
+  }
+  return "#j="+b64u.enc(json);
+}
+async function sceneFromHash(hash){
+  const m=/^#(z|j)=(.+)$/.exec(hash||""); if(!m) return null;
+  try{
+    let bytes=b64u.dec(m[2]);
+    if(m[1]==="z") bytes=await pipeBytes(bytes,new DecompressionStream("deflate-raw"));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }catch(e){ console.warn("Playa Plot: unreadable share link —",e); return null; }
+}
+async function loadSharedScene(){
+  const s=await sceneFromHash(location.hash);
+  if(!s) return false;
+  history.replaceState(null,"",location.pathname+location.search);  // one-shot: don't re-apply on refresh
+  if(Store.loadAutosave() &&
+     !confirm("Load the shared layout from this link? It replaces your current layout (saved templates are untouched)."))
+    return false;
+  return applyScene(s);
+}
+document.getElementById("shareBtn").onclick=async function(){
+  const url=location.origin+location.pathname+await sceneToHash();
+  const msg=document.getElementById("shareMsg");
+  try{ await navigator.clipboard.writeText(url);
+    msg.textContent="Link copied — anyone who opens it sees this exact layout."; }
+  catch(e){ prompt("Copy this link:",url); msg.textContent=""; }
+  clearTimeout(this._t); this._t=setTimeout(()=>{ msg.textContent=""; },6000);
+};
+document.getElementById("jsonExportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(serializeScene(),null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="playa-plot-layout.json"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+};
+document.getElementById("jsonImportBtn").onclick=()=>document.getElementById("jsonFile").click();
+document.getElementById("jsonFile").addEventListener("change",async function(){
+  const f=this.files[0]; this.value=""; if(!f) return;
+  try{
+    const s=JSON.parse(await f.text());
+    if(!applyScene(s)) throw new Error("not a Playa Plot layout file");
+    fitMode=true; fullRebuild();
+  }catch(e){ alert("Import failed: "+(e.message||e)); }
+});
+
+/* ---------- first-run setup wizard ----------
+   Shown once: only when there's no autosaved layout AND the seen-flag is unset.
+   Skip (or just building) leaves the minimal default scene in place. */
+const SEEN_KEY="playaplot:seen:v1";
+function wizardSeen(){ try{ return !!localStorage.getItem(SEEN_KEY); }catch(e){ return true; } }
+function markWizardSeen(){ try{ localStorage.setItem(SEEN_KEY,"1"); }catch(e){} }
+function showWizard(){
+  // browsers restore form state across reloads, which can override the markup
+  // defaults — set them explicitly so the wizard always opens in a known state
+  document.getElementById("wzW").value=70;
+  document.getElementById("wzD").value=50;
+  document.getElementById("wzRV").value=1;
+  document.getElementById("wzTent").value=1;
+  document.getElementById("wzCommon").value="open";
+  document.getElementById("wiz").style.display="flex";
+}
+function buildFromWizard(){
+  const num=(id,lo,hi,dflt)=>{ const v=Math.round(+document.getElementById(id).value);
+    return isNaN(v)?dflt:Math.max(lo,Math.min(hi,v)); };
+  plotW=num("wzW",10,400,70); plotD=num("wzD",10,400,50);
+  const nRV=num("wzRV",0,12,1), nTent=num("wzTent",0,16,1);
+  const common=document.getElementById("wzCommon").value;
+  items=[]; uid=1; selectedId=null;
+  if(common!=="none"){                        // common area in the middle
+    const w=Math.min(20,plotW-4), h=Math.min(20,plotD-4);
+    items.push({id:uid++,cat:"common",key:"common",label:"Common area",w,h,drive:null,
+      covered:common==="covered",x:Math.round((plotW-w)/2),y:Math.round((plotD-h)/2),rot:0});
+  }
+  // RVs as a windbreak column down the west edge (rotated: 8 wide, 28 tall), wrapping east
+  let x=2,y=2;
+  for(let i=0;i<nRV;i++){
+    if(y+28>plotD && y>2){ y=2; x+=10; }
+    items.push({id:uid++,cat:"rv",key:"classc",label:"RV "+(i+1),w:28,h:8,drive:"motor",
+      x:Math.max(0,Math.min(x,plotW-8)),y:Math.max(0,Math.min(y,plotD-28)),rot:90});
+    y+=30;
+  }
+  // tents/pods down the east (leeward) edge, wrapping back west
+  x=plotW-14; y=2;
+  for(let i=0;i<nTent;i++){
+    if(y+12>plotD && y>2){ y=2; x-=14; }
+    items.push({id:uid++,cat:"pod",key:"shiftpod",label:"Tent "+(i+1),w:12,h:12,drive:null,
+      x:Math.max(0,Math.min(x,plotW-12)),y:Math.max(0,Math.min(y,plotD-12)),rot:0});
+    y+=14;
+  }
+  document.getElementById("plotW").value=plotW;
+  document.getElementById("plotD").value=plotD;
+}
+document.getElementById("wzGo").onclick=()=>{
+  buildFromWizard(); markWizardSeen();
+  document.getElementById("wiz").style.display="none";
+  fitMode=true; fullRebuild();
+};
+document.getElementById("wzSkip").onclick=()=>{
+  markWizardSeen();                            // minimal default scene is already underneath
+  document.getElementById("wiz").style.display="none";
+};
 
 /* ========== Accounts + cloud templates ==========================================
    Named layouts are read/written through `Templates`, which mirrors the LocalAdapter
@@ -1019,9 +1367,15 @@ document.getElementById("tplName").addEventListener("keydown",e=>{ if(e.key==="E
 /* ---------- init ---------- */
 fillSelect("rvSel",RV_TYPES);
 fillSelect("tentSel",TENT_TYPES);
-if(!loadAutosave()) defaultScene();   // restore last session, else the starter scene
-fullRebuild();
-initCloud();                          // wires the account panel + templates (local or cloud)
+(async function initScene(){
+  const fromLink=await loadSharedScene();        // a share link in the URL wins
+  if(!fromLink && !loadAutosave()){
+    defaultScene();                              // starter scene under the wizard
+    if(!wizardSeen()) showWizard();
+  }
+  fullRebuild();
+  initCloud();                                   // wires the account panel + templates (local or cloud)
+})();
 </script>
 </body>
 </html>

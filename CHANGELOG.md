@@ -2,6 +2,38 @@
 
 All notable changes to Playa Plot are documented here.
 
+## v0.2.0 — 2026-07-01
+
+### Added
+- **First-run setup wizard.** New visitors get asked plot size, RV count, tent
+  count, and whether they have a common area (open / covered / none), and the
+  starter scene is built from their answers — RVs as a windbreak on the west
+  edge, tents on the leeward east. Skippable; shows only once.
+- **New item types:** Shade structure (translucent, drawn above everything),
+  Fire lane (hatched keep-clear strip), Road (with dashed centre line), Bike,
+  and Power (panel with a lightning bolt).
+- **Common area** is now its own item: an open zone by default (light fill,
+  dashed edge, drawn under other items) with a **"Covered — render as a tent"**
+  checkbox. Replaces the old "Common tent"; existing saves migrate automatically.
+- **Edge-move + resize handles** on shade structures and common areas: clicks
+  inside the zone select whatever sits in it, dragging the edge moves the zone,
+  and square corner/side handles resize it (snap-aware, rotation-aware).
+- **Fire-lane warnings:** anything overlapping a fire lane is called out in the
+  Footprint panel, like the existing fuel-clearance check.
+- **Share links.** One click copies a URL with the whole layout compressed into
+  it — no account or backend needed; opening the link loads the exact layout.
+- **JSON export / import** of layouts as files.
+- Selecting an item now scrolls the sidebar editor into view with a brief
+  highlight, so the edit fields are always visible after a click.
+
+### Changed
+- Default scene slimmed to 1 RV + 1 tent (was 2 RVs + 5 shiftpods + common tent);
+  the wizard covers richer starts.
+- Canvas is layered: fire lanes, roads, and common areas draw under items;
+  shade structures draw above them.
+- Sidebar reordered: Account → My templates → Add to plot → Selected item →
+  Footprint → Share & export → Legend → Notes.
+
 ## v0.1.0 — 2026-07-01
 
 ### Added
