@@ -2,7 +2,7 @@
 
 All notable changes to Playa Plot are documented here.
 
-## Unreleased
+## v0.1.0 — 2026-07-01
 
 ### Added
 - **Accounts + cloud-synced templates (optional).** Sign in with email+password
@@ -15,12 +15,15 @@ All notable changes to Playa Plot are documented here.
 - **Layout autosave (local persistence).** Your layout now survives a page
   refresh — it's saved to the browser automatically on every change and
   restored on load. Fixes the long-standing "refresh resets the scene" gap.
+- **Show/hide password toggle** on the account sign-in fields.
 - Storage now sits behind swappable adapters (`Store` for autosave, `Templates`
   for named layouts), so the cloud backend drops in without touching the rest of
   the app.
 
 ### Changed
 - Canonical live site moved to https://playa-plot.pages.dev/ (Cloudflare Pages).
+
+## v0.0.1
 
 First public release.
 
